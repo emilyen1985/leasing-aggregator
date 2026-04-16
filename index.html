@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Лизинговая техника — агрегатор</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; }
+
+  header { background: #1565C0; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  header h1 { font-size: 20px; font-weight: 600; }
+  .stats-badge { background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 13px; margin-left: auto; }
+
+  .filters { background: white; padding: 16px 24px; border-bottom: 1px solid #e0e0e0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .filters input, .filters select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; background: white; }
+  .filters input:focus, .filters select:focus { border-color: #1565C0; }
+  .filters input[type=text] { flex: 1; min-width: 200px; }
+  .btn { padding: 8px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; }
+  .btn-primary { background: #1565C0; color: white; }
+  .btn-primary:hover { background: #1976D2; }
+  .btn-secondary { background: #f5f5f5; color: #555; border: 1px solid #ddd; }
+  .btn-secondary:hover { background: #eee; }
+
+  .summary { padding: 12px 24px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .summary-card { background: white; border-radius: 10px; padding: 12px 20px; font-size: 13px; color: #555; border: 1px solid #e8e8e8; }
+  .summary-card strong { display: block; font-size: 22px; color: #1565C0; font-weight: 700; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding: 0 24px 24px; }
+
+  .card { background: white; border-radius: 12px; border: 1px solid #e8e8e8; overflow: hidden; transition: box-shadow 0.15s; }
+  .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+  .card.sold { opacity: 0.6; }
+
+  .card-header { padding: 14px 16px 10px; border-bottom: 1px solid #f0f0f0; }
+  .card-company { font-size: 11px; font-weight: 600; color: #1565C0; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .card-brand { font-size: 15px; font-weight: 600; color: #1a1a1a; line-height: 1.3; }
+
+  .card-body { padding: 12px 16px; }
+  .card-specs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .spec { }
+  .spec-label { font-size: 11px; color: #999; margin-bottom: 2px; }
+  .spec-value { font-size: 14px; font-weight: 500; color: #1a1a1a; }
+  .spec-value.price { color: #1B5E20; font-size: 16px; font-weight: 700; }
+  .spec-value.unavailable { color: #999; font-weight: 400; }
+
+  .card-footer { padding: 10px 16px; background: #fafafa; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f0f0f0; }
+  .source-badge { font-size: 11px; padding: 3px 8px; border-radius: 12px; background: #E3F2FD; color: #1565C0; font-weight: 500; }
+  .source-badge.avito { background: #E8F5E9; color: #2E7D32; }
+  .status-badge { font-size: 11px; padding: 3px 8px; border-radius: 12px; }
+  .status-active { background: #E8F5E9; color: #2E7D32; }
+  .status-sold { background: #f5f5f5; color: #999; }
+
+  .card-link { display: block; text-align: center; padding: 9px; background: #1565C0; color: white; text-decoration: none; font-size: 13px; font-weight: 500; border-radius: 0 0 11px 11px; margin-top: 4px; transition: background 0.15s; }
+  .card-link:hover { background: #1976D2; }
+  .card-link.sold { background: #9e9e9e; }
+
+  .loading { text-align: center; padding: 60px 24px; color: #999; font-size: 16px; }
+  .no-results { text-align: center; padding: 60px 24px; color: #999; }
+  .no-results p { font-size: 16px; margin-bottom: 8px; }
+
+  .updated { font-size: 12px; color: #bbb; padding: 8px 24px 0; }
+
+  .vin { font-size: 10px; color: #ccc; margin-top: 4px; font-family: monospace; }
+
+  @media (max-width: 600px) {
+    .filters { padding: 12px 16px; }
+    .grid { padding: 0 16px 16px; grid-template-columns: 1fr; }
+    .summary { padding: 10px 16px; }
+    header { padding: 12px 16px; }
+    header h1 { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚛 Лизинговая техника</h1>
+  <span class="stats-badge" id="total-badge">Загрузка...</span>
+</header>
+
+<div class="filters">
+  <input type="text" id="search" placeholder="Поиск по марке, модели..." oninput="applyFilters()">
+  <select id="filter-company" onchange="applyFilters()">
+    <option value="">Все компании</option>
+  </select>
+  <select id="filter-status" onchange="applyFilters()">
+    <option value="В наличии">В наличии</option>
+    <option value="">Все статусы</option>
+    <option value="Снято с продажи">Снято с продажи</option>
+  </select>
+  <select id="filter-city" onchange="applyFilters()">
+    <option value="">Все города</option>
+  </select>
+  <select id="sort" onchange="applyFilters()">
+    <option value="date_desc">Сначала новые</option>
+    <option value="price_asc">Цена ↑</option>
+    <option value="price_desc">Цена ↓</option>
+    <option value="mileage_asc">Пробег ↑</option>
+    <option value="year_desc">Год ↓</option>
+  </select>
+  <button class="btn btn-secondary" onclick="resetFilters()">Сбросить</button>
+</div>
+
+<div class="summary" id="summary"></div>
+<div class="updated" id="updated-info"></div>
+<div class="grid" id="grid"><div class="loading">⏳ Загрузка объявлений...</div></div>
+
+<script>
+const SUPABASE_URL = 'https://znzxbhzkeymyrwmaycrd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_dQqyeDBXfI97IrcsOM89eg_n1sbVaHF';
+
+let allListings = [];
+let filtered = [];
+
+async function fetchAll() {
+  const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+  let all = [], from = 0, step = 1000;
+  while (true) {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/listings?select=*&order=date_updated.desc&limit=${step}&offset=${from}`,
+      { headers }
+    );
+    const data = await r.json();
+    if (!Array.isArray(data) || data.length === 0) break;
+    all = all.concat(data);
+    if (data.length < step) break;
+    from += step;
+  }
+  return all;
+}
+
+function fmt(n) {
+  if (!n) return null;
+  return Number(n).toLocaleString('ru-RU');
+}
+
+function buildCard(l) {
+  const sold = l.status === 'Снято с продажи';
+  const price = l.price ? fmt(l.price) + ' ₽' : null;
+  const mileage = l.mileage ? fmt(l.mileage) + ' км' : null;
+  const isAvito = (l.source || '').toLowerCase().includes('avito');
+
+  return `
+  <div class="card ${sold ? 'sold' : ''}">
+    <div class="card-header">
+      <div class="card-company">${l.company || ''}</div>
+      <div class="card-brand">${l.brand || 'Объявление'}</div>
+      ${l.vin ? `<div class="vin">VIN: ${l.vin}</div>` : ''}
+    </div>
+    <div class="card-body">
+      <div class="card-specs">
+        <div class="spec">
+          <div class="spec-label">Цена</div>
+          <div class="spec-value price">${price || '<span class="unavailable">—</span>'}</div>
+        </div>
+        <div class="spec">
+          <div class="spec-label">Пробег</div>
+          <div class="spec-value">${mileage || '<span class="unavailable">—</span>'}</div>
+        </div>
+        <div class="spec">
+          <div class="spec-label">Год</div>
+          <div class="spec-value">${l.year || '<span class="unavailable">—</span>'}</div>
+        </div>
+        <div class="spec">
+          <div class="spec-label">Город</div>
+          <div class="spec-value">${l.city || '<span class="unavailable">—</span>'}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span class="source-badge ${isAvito ? 'avito' : ''}">${l.source || 'Сайт'}</span>
+        <span class="status-badge ${sold ? 'status-sold' : 'status-active'}">${l.status || 'В наличии'}</span>
+      </div>
+    </div>
+    ${l.url
+      ? `<a class="card-link ${sold ? 'sold' : ''}" href="${l.url}" target="_blank" rel="noopener">${sold ? 'Снято с продажи' : '→ Перейти к объявлению'}</a>`
+      : ''}
+  </div>`;
+}
+
+function populateFilters() {
+  const companies = [...new Set(allListings.map(l => l.company).filter(Boolean))].sort();
+  const cities = [...new Set(allListings.map(l => l.city).filter(Boolean))].sort();
+
+  const cSel = document.getElementById('filter-company');
+  companies.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; cSel.appendChild(o); });
+
+  const citySel = document.getElementById('filter-city');
+  cities.slice(0, 50).forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; citySel.appendChild(o); });
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const company = document.getElementById('filter-company').value;
+  const status = document.getElementById('filter-status').value;
+  const city = document.getElementById('filter-city').value;
+  const sort = document.getElementById('sort').value;
+
+  filtered = allListings.filter(l => {
+    if (q && !(l.brand || '').toLowerCase().includes(q) && !(l.company || '').toLowerCase().includes(q)) return false;
+    if (company && l.company !== company) return false;
+    if (status && l.status !== status) return false;
+    if (city && l.city !== city) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    if (sort === 'price_asc') return (a.price || 0) - (b.price || 0);
+    if (sort === 'price_desc') return (b.price || 0) - (a.price || 0);
+    if (sort === 'mileage_asc') return (a.mileage || 0) - (b.mileage || 0);
+    if (sort === 'year_desc') return (b.year || 0) - (a.year || 0);
+    return new Date(b.date_updated) - new Date(a.date_updated);
+  });
+
+  renderGrid();
+  renderSummary();
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="no-results"><p>Ничего не найдено</p><p style="font-size:13px">Попробуйте изменить фильтры</p></div>';
+    document.getElementById('total-badge').textContent = '0 объявлений';
+    return;
+  }
+  document.getElementById('total-badge').textContent = filtered.length + ' объявлений';
+  grid.innerHTML = filtered.map(buildCard).join('');
+}
+
+function renderSummary() {
+  const active = allListings.filter(l => l.status === 'В наличии').length;
+  const companies = new Set(allListings.map(l => l.company).filter(Boolean)).size;
+  const withPrice = allListings.filter(l => l.price).length;
+  const avgPrice = withPrice ? Math.round(allListings.filter(l=>l.price).reduce((s,l)=>s+l.price,0)/withPrice) : 0;
+
+  document.getElementById('summary').innerHTML = `
+    <div class="summary-card"><strong>${active.toLocaleString('ru-RU')}</strong>В наличии</div>
+    <div class="summary-card"><strong>${companies}</strong>Компаний</div>
+    <div class="summary-card"><strong>${avgPrice ? fmt(avgPrice) + ' ₽' : '—'}</strong>Средняя цена</div>
+    <div class="summary-card"><strong>${allListings.filter(l=>l.source==='Avito').length}</strong>С Avito</div>
+  `;
+}
+
+function resetFilters() {
+  document.getElementById('search').value = '';
+  document.getElementById('filter-company').value = '';
+  document.getElementById('filter-status').value = 'В наличии';
+  document.getElementById('filter-city').value = '';
+  document.getElementById('sort').value = 'date_desc';
+  applyFilters();
+}
+
+async function init() {
+  try {
+    allListings = await fetchAll();
+    if (allListings.length === 0) {
+      document.getElementById('grid').innerHTML = '<div class="loading">База данных пуста — запустите парсер</div>';
+      return;
+    }
+    const last = allListings.reduce((a,b) => new Date(a.date_updated) > new Date(b.date_updated) ? a : b);
+    const lastDate = new Date(last.date_updated).toLocaleString('ru-RU');
+    document.getElementById('updated-info').textContent = `Последнее обновление: ${lastDate}`;
+
+    populateFilters();
+    applyFilters();
+  } catch(e) {
+    document.getElementById('grid').innerHTML = '<div class="loading">Ошибка загрузки данных: ' + e.message + '</div>';
+    console.error(e);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
