@@ -1,25 +1,72 @@
 import requests
-from bs4 import BeautifulSoup
 import json
 import time
 import re
-from datetime import date
-from supabase import create_client
+from datetime import date, datetime
+import os
 
 # ═══════════════════════════════════════════
 #  НАСТРОЙКИ
 # ═══════════════════════════════════════════
-import os
-SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Заголовки для Supabase REST API (работает с любым форматом ключа)
+SUPA_HEADERS = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': f'Bearer {SUPABASE_KEY}',
+    'Content-Type': 'application/json',
+    'Prefer': 'return=minimal'
+}
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
 }
+
+# ═══════════════════════════════════════════
+#  SUPABASE REST API (без внешней библиотеки)
+# ═══════════════════════════════════════════
+
+def supa_select(table, columns='*', filters=None):
+    url = f'{SUPABASE_URL}/rest/v1/{table}?select={columns}'
+    if filters:
+        url += '&' + '&'.join(f'{k}=eq.{v}' for k, v in filters.items())
+    r = requests.get(url, headers=SUPA_HEADERS, timeout=30)
+    return r.json() if r.status_code == 200 else []
+
+def supa_upsert(table, rows):
+    if not rows:
+        return True
+    url = f'{SUPABASE_URL}/rest/v1/{table}'
+    headers = dict(SUPA_HEADERS)
+    headers['Prefer'] = 'resolution=merge-duplicates,return=minimal'
+    r = requests.post(url, headers=headers, json=rows, timeout=30)
+    return r.status_code in (200, 201)
+
+def supa_update(table, data, match_column, match_value):
+    url = f'{SUPABASE_URL}/rest/v1/{table}?{match_column}=eq.{match_value}'
+    r = requests.patch(url, headers=SUPA_HEADERS, json=data, timeout=30)
+    return r.status_code in (200, 204)
+
+def supa_update_many(table, data, column, values):
+    """Обновляет несколько строк по списку значений"""
+    if not values:
+        return True
+    url = f'{SUPABASE_URL}/rest/v1/{table}?{column}=in.({",".join(values)})'
+    r = requests.patch(url, headers=SUPA_HEADERS, json=data, timeout=30)
+    return r.status_code in (200, 204)
+
+def test_connection():
+    """Проверяем подключение к Supabase"""
+    url = f'{SUPABASE_URL}/rest/v1/listings?select=id&limit=1'
+    r = requests.get(url, headers=SUPA_HEADERS, timeout=10)
+    if r.status_code == 200:
+        print('✅ Supabase подключён')
+        return True
+    print(f'❌ Supabase ошибка: HTTP {r.status_code} — {r.text[:200]}')
+    return False
 
 # ═══════════════════════════════════════════
 #  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -31,19 +78,19 @@ def get_page(url, delay=2):
         r = requests.get(url, headers=HEADERS, timeout=15)
         if r.status_code == 200:
             return r.text
-        print(f'HTTP {r.status_code} для {url}')
+        print(f'  HTTP {r.status_code} для {url[:60]}')
         return None
     except Exception as e:
-        print(f'Ошибка {url}: {e}')
+        print(f'  Ошибка {url[:60]}: {e}')
         return None
 
 def get_next_data(html):
     if not html:
         return None
-    match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-    if match:
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+    if m:
         try:
-            return json.loads(match.group(1))
+            return json.loads(m.group(1))
         except:
             return None
     return None
@@ -76,19 +123,24 @@ def clean_text(s):
         return ''
     return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', str(s))).strip()
 
-def extract_year_from_slug(slug):
-    m = re.search(r'(?:^|-)(20[12]\d)(?:-|$)', slug)
-    return m.group(1) if m else None
-
 def brand_from_slug(url):
     slug = url.rstrip('/').split('/')[-1]
-    year = extract_year_from_slug(slug)
+    m = re.search(r'(?:^|-)(20[12]\d)(?:-|$)', slug)
+    year = m.group(1) if m else None
     cleaned = re.sub(r'(?:^|-)(20[12]\d)(?:-|$)', '-', slug)
     parts = [p.capitalize() for p in cleaned.split('-') if p]
     return ' '.join(parts), year
 
+def extract_year(text):
+    m = re.search(r'\b(20[12]\d)\b', str(text))
+    return int(m.group(1)) if m else None
+
+def extract_mileage(text):
+    m = re.search(r'(\d[\d\s]+)\s*км', str(text), re.I)
+    return m.group(1).replace(' ', '') if m else None
+
 # ═══════════════════════════════════════════
-#  ПАРСЕРЫ САЙТОВ
+#  ПАРСЕРЫ ОФИЦИАЛЬНЫХ САЙТОВ
 # ═══════════════════════════════════════════
 
 def parse_alfa_leasing():
@@ -114,7 +166,7 @@ def parse_alfa_leasing():
             uid = car.get('uid', '')
             items.append({
                 'company': 'Альфа Лизинг',
-                'brand': brand or clean_text(car.get('description', '')[:50]),
+                'brand': brand or clean_text(str(car.get('description', ''))[:50]),
                 'year': car.get('year'),
                 'mileage': clean_number(lp.get('mileage') or car.get('mileage')),
                 'price': clean_number(car.get('price')),
@@ -125,44 +177,36 @@ def parse_alfa_leasing():
             })
         if len(catalog) < 12:
             break
-    print(f'Альфа Лизинг: {len(items)} объявлений')
+    print(f'  Альфа Лизинг: {len(items)}')
     return items
 
 def parse_ileasing():
     items = []
     base = 'https://www.ileasing.ru'
-    cats = ['/bu_tehnika/gruzovoy-transport/', '/bu_tehnika/legkovoy-transport/', '/bu_tehnika/']
-    seen_urls = set()
-    for cat in cats:
+    seen = set()
+    for cat in ['/bu_tehnika/gruzovoy-transport/', '/bu_tehnika/legkovoy-transport/']:
         for page in range(1, 10):
             url = f'{base}{cat}' + (f'?PAGEN_1={page}' if page > 1 else '')
             html = get_page(url, delay=3)
-            if not html or ('404' in html and len(html) < 3000):
+            if not html:
                 break
-            links = re.findall(r'href="(/bu_tehnika/[^"?#]+/[^"?#/]{5,}/?)"', html)
-            links = list(set(links))
-            new_links = [l for l in links if l not in seen_urls and
-                        len(l.split('/')) >= 4 and
-                        l.split('/')[-2] not in ['gruzovoy-transport','legkovoy-transport','spetstehnika','bu_tehnika']]
-            if not new_links:
+            links = list(set(re.findall(r'href="(/bu_tehnika/[^"?#]+/[^"?#/]{5,}/?)"', html)))
+            new = [l for l in links if l not in seen and
+                   len(l.split('/')) >= 4 and
+                   l.split('/')[-2] not in ['gruzovoy-transport','legkovoy-transport','bu_tehnika']]
+            if not new:
                 break
-            for href in new_links:
-                seen_urls.add(href)
+            for href in new:
+                seen.add(href)
                 brand, year = brand_from_slug(href)
                 items.append({
-                    'company': 'ИнтерЛизинг',
-                    'brand': brand,
+                    'company': 'ИнтерЛизинг', 'brand': brand,
                     'year': int(year) if year else None,
-                    'mileage': None,
-                    'price': None,
-                    'city': '',
-                    'vin': None,
-                    'url': base + href,
-                    'source': 'ileasing.ru',
+                    'url': base + href, 'source': 'ileasing.ru',
                 })
             if f'PAGEN_1={page+1}' not in html:
                 break
-    print(f'ИнтерЛизинг: {len(items)} объявлений')
+    print(f'  ИнтерЛизинг: {len(items)}')
     return items
 
 def parse_carcade():
@@ -178,7 +222,7 @@ def parse_carcade():
             catalog = find_listings_array(nd)
             if catalog:
                 for car in catalog:
-                    car_url = car.get('url') or car.get('path') or car.get('slug') or ''
+                    cu = car.get('url') or car.get('path') or ''
                     items.append({
                         'company': 'Каркаде',
                         'brand': clean_text(car.get('name') or car.get('title') or
@@ -188,7 +232,7 @@ def parse_carcade():
                         'price': clean_number(car.get('price') or car.get('cost')),
                         'city': clean_text(car.get('city') or car.get('region') or ''),
                         'vin': car.get('vin'),
-                        'url': car_url if car_url.startswith('http') else base + car_url,
+                        'url': cu if cu.startswith('http') else base + cu,
                         'source': 'carcade.com',
                     })
                 if len(catalog) < 10:
@@ -198,49 +242,42 @@ def parse_carcade():
         if not links:
             break
         for href in links:
-            items.append({'company': 'Каркаде', 'brand': f'Объявл. {href.split("/")[-1]}',
-                         'url': base + href, 'source': 'carcade.com'})
+            items.append({'company': 'Каркаде', 'url': base + href, 'source': 'carcade.com'})
         break
-    print(f'Каркаде: {len(items)} объявлений')
+    print(f'  Каркаде: {len(items)}')
     return items
 
 def parse_sberleasing():
     items = []
     base = 'https://www.sberleasing.ru'
-    cats = ['/realizaciya-imushestva/gruzovoy-avtotransport-i-avtobusy/',
-            '/realizaciya-imushestva/tyagachi/',
-            '/realizaciya-imushestva/spetstehnika/']
-    for cat in cats:
+    for cat in ['/realizaciya-imushestva/gruzovoy-avtotransport-i-avtobusy/',
+                '/realizaciya-imushestva/tyagachi/']:
         html = get_page(base + cat, delay=5)
         if not html:
             continue
-        links = list(set(re.findall(r'href="(/realizaciya-imushestva/[^"?#]+/[^"?#/]{5,}/)"', html)))
+        links = list(set(re.findall(
+            r'href="(/realizaciya-imushestva/[^"?#]+/[^"?#/]{5,}/)"', html)))
         for href in links:
             brand, year = brand_from_slug(href)
-            items.append({
-                'company': 'СберЛизинг', 'brand': brand,
-                'year': int(year) if year else None,
-                'url': base + href, 'source': 'sberleasing.ru'
-            })
-    print(f'СберЛизинг: {len(items)} объявлений')
+            items.append({'company': 'СберЛизинг', 'brand': brand,
+                         'year': int(year) if year else None,
+                         'url': base + href, 'source': 'sberleasing.ru'})
+    print(f'  СберЛизинг: {len(items)}')
     return items
 
 def parse_vtb_leasing():
     items = []
     base = 'https://www.vtb-leasing.ru'
     html = get_page(base + '/market/', delay=4)
-    if not html:
-        return items
-    nd = get_next_data(html)
-    if nd:
-        bid_m = re.search(r'"buildId"\s*:\s*"([^"]+)"', html)
-        if bid_m:
-            nj_url = f'{base}/_next/data/{bid_m.group(1)}/market.json'
+    if html:
+        bid = re.search(r'"buildId"\s*:\s*"([^"]+)"', html)
+        if bid:
             try:
-                r = requests.get(nj_url, headers=HEADERS, timeout=10)
+                r = requests.get(
+                    f'{base}/_next/data/{bid.group(1)}/market.json',
+                    headers=HEADERS, timeout=10)
                 if r.status_code == 200:
-                    nj = r.json()
-                    catalog = find_listings_array(nj)
+                    catalog = find_listings_array(r.json())
                     if catalog:
                         for car in catalog:
                             items.append({
@@ -256,22 +293,21 @@ def parse_vtb_leasing():
                             })
             except:
                 pass
-    if not items:
-        links = list(set(re.findall(r'href="(/auto/probeg/[^"?#]+)"', html or '')))
-        for href in links:
-            brand, year = brand_from_slug(href)
-            items.append({'company': 'ВТБ Лизинг', 'brand': brand,
-                         'year': int(year) if year else None,
-                         'url': base + href, 'source': 'vtb-leasing.ru'})
-    print(f'ВТБ Лизинг: {len(items)} объявлений')
+        if not items:
+            links = list(set(re.findall(r'href="(/auto/probeg/[^"?#]+)"', html)))
+            for href in links:
+                brand, year = brand_from_slug(href)
+                items.append({'company': 'ВТБ Лизинг', 'brand': brand,
+                             'year': int(year) if year else None,
+                             'url': base + href, 'source': 'vtb-leasing.ru'})
+    print(f'  ВТБ Лизинг: {len(items)}')
     return items
 
 def parse_sovcom():
     items = []
     base = 'https://sovcombank-leasing.ru'
     for page in range(1, 10):
-        url = f'{base}/market/used-cars?page={page}'
-        html = get_page(url, delay=4)
+        html = get_page(f'{base}/market/used-cars?page={page}', delay=4)
         if not html:
             break
         nd = get_next_data(html)
@@ -296,30 +332,31 @@ def parse_sovcom():
                     break
                 continue
         break
-    print(f'Совком Лизинг: {len(items)} объявлений')
+    print(f'  Совком Лизинг: {len(items)}')
     return items
 
 def parse_europlan():
     items = []
     base = 'https://europlan.ru'
-    cats = ['/auto/sale/truck', '/auto/sale/special']
-    for cat in cats:
+    for cat in ['/auto/sale/truck', '/auto/sale/special']:
         html = get_page(base + cat, delay=4)
         if not html:
             continue
-        bid_m = re.search(r'"buildId"\s*:\s*"([^"]+)"', html)
-        if bid_m:
+        bid = re.search(r'"buildId"\s*:\s*"([^"]+)"', html)
+        if bid:
             try:
-                nj_url = f'{base}/_next/data/{bid_m.group(1)}{cat}.json'
-                r = requests.get(nj_url, headers=HEADERS, timeout=10)
+                r = requests.get(
+                    f'{base}/_next/data/{bid.group(1)}{cat}.json',
+                    headers=HEADERS, timeout=10)
                 if r.status_code == 200:
                     catalog = find_listings_array(r.json())
                     if catalog:
                         for car in catalog:
                             items.append({
                                 'company': 'Европлан',
-                                'brand': clean_text(car.get('name') or car.get('title') or
-                                                   f"{car.get('markName','')} {car.get('modelName','')}".strip()),
+                                'brand': clean_text(
+                                    car.get('name') or car.get('title') or
+                                    f"{car.get('markName','')} {car.get('modelName','')}".strip()),
                                 'year': car.get('year') or car.get('releaseYear'),
                                 'mileage': clean_number(car.get('mileage') or car.get('run')),
                                 'price': clean_number(car.get('price') or car.get('cost')),
@@ -330,7 +367,7 @@ def parse_europlan():
                             })
             except:
                 pass
-    print(f'Европлан: {len(items)} объявлений')
+    print(f'  Европлан: {len(items)}')
     return items
 
 def parse_baltlease():
@@ -371,11 +408,14 @@ def parse_baltlease():
                          'url': base + href, 'source': 'baltlease.ru'})
         if f'page={page+1}' not in html:
             break
-    print(f'Балтийский Лизинг: {len(items)} объявлений')
+    print(f'  Балтийский Лизинг: {len(items)}')
     return items
 
-def parse_avito_sellers():
-    """Парсим Avito напрямую — с GitHub IP не блокирует"""
+# ═══════════════════════════════════════════
+#  AVITO (с GitHub IP — без блокировок)
+# ═══════════════════════════════════════════
+
+def parse_avito():
     items = []
     sellers = [
         ('Каркаде',           'https://www.avito.ru/brands/i52793947/all'),
@@ -393,24 +433,22 @@ def parse_avito_sellers():
         ('Реалист',           'https://www.avito.ru/brands/realistbank/all/transport'),
     ]
     for company, start_url in sellers:
-        company_items = []
+        co_items = []
         for page in range(1, 10):
             url = start_url + (f'?p={page}' if page > 1 else '')
-            html = get_page(url, delay=5)
-            if not html:
-                print(f'  {company}: заблокировано')
-                break
-            if '429' in html[:500] or len(html) < 3000:
-                print(f'  {company}: rate limit')
+            html = get_page(url, delay=6)
+            if not html or len(html) < 3000:
+                print(f'  {company} (Avito): заблокировано')
                 break
             nd = get_next_data(html)
             page_items = []
             if nd:
-                # Avito Next.js структура
                 try:
-                    catalog = (nd.get('props', {}).get('pageProps', {})
-                              .get('initialState', {}).get('items', {}).get('items') or
-                              find_listings_array(nd))
+                    catalog = (
+                        (nd.get('props') or {}).get('pageProps', {})
+                        .get('initialState', {}).get('items', {}).get('items') or
+                        find_listings_array(nd)
+                    )
                     if catalog:
                         for item in catalog:
                             title = item.get('title') or item.get('name') or ''
@@ -420,8 +458,8 @@ def parse_avito_sellers():
                             page_items.append({
                                 'company': company,
                                 'brand': clean_text(title),
-                                'year': item.get('year') or _extract_year(title),
-                                'mileage': clean_number(item.get('mileage') or _extract_mileage(title)),
+                                'year': item.get('year') or extract_year(title),
+                                'mileage': clean_number(item.get('mileage') or extract_mileage(title)),
                                 'price': clean_number(price),
                                 'city': clean_text((item.get('location') or {}).get('name') or ''),
                                 'vin': item.get('vin'),
@@ -430,13 +468,10 @@ def parse_avito_sellers():
                             })
                 except:
                     pass
-            # HTML fallback
             if not page_items:
-                item_links = list(set(re.findall(
-                    r'href="(/[^"?#]+_\d{8,})"', html)))
+                item_links = list(set(re.findall(r'href="(/[^"?#]+_\d{8,})"', html)))
                 for href in item_links:
-                    title = href.split('/')[-1].replace('-', ' ').replace('_', ' ')
-                    title = re.sub(r'\d{8,}$', '', title).strip()
+                    title = re.sub(r'_\d+$', '', href.split('/')[-1]).replace('-', ' ').strip()
                     page_items.append({
                         'company': company,
                         'brand': title.capitalize(),
@@ -445,85 +480,62 @@ def parse_avito_sellers():
                     })
             if not page_items:
                 break
-            company_items.extend(page_items)
+            co_items.extend(page_items)
             if len(page_items) < 20:
                 break
             time.sleep(5)
-        print(f'  {company} (Avito): {len(company_items)} объявлений')
-        items.extend(company_items)
+        print(f'  {company} (Avito): {len(co_items)}')
+        items.extend(co_items)
     return items
-
-def _extract_year(text):
-    m = re.search(r'\b(20[12]\d)\b', str(text))
-    return int(m.group(1)) if m else None
-
-def _extract_mileage(text):
-    m = re.search(r'(\d[\d\s]+)\s*км', str(text), re.I)
-    return m.group(1).replace(' ', '') if m else None
 
 # ═══════════════════════════════════════════
 #  ДЕДУПЛИКАЦИЯ
 # ═══════════════════════════════════════════
 
 def deduplicate(items):
-    """
-    Убирает дубли по трём критериям:
-    1. VIN совпадает → дубль 100%
-    2. Бренд + Год + Пробег ±500 км → вероятный дубль
-    3. URL уже есть → тот же источник
-    """
     seen_vins = {}
-    seen_url = set()
+    seen_urls = set()
     result = []
-    skipped = 0
-
+    dupes = 0
     for item in items:
         url = item.get('url', '')
         vin = (item.get('vin') or '').strip().upper()
-
-        # URL дубль
-        if url and url in seen_url:
-            skipped += 1
+        if url and url in seen_urls:
+            dupes += 1
             continue
         if url:
-            seen_url.add(url)
-
-        # VIN дубль
+            seen_urls.add(url)
         if vin and len(vin) >= 10:
             if vin in seen_vins:
-                # Помечаем как дубль, но добавляем с пометкой
-                item['duplicate_source'] = seen_vins[vin]
-                skipped += 1
+                dupes += 1
                 continue
             seen_vins[vin] = url
-
         result.append(item)
-
-    print(f'Дедупликация: {len(items)} → {len(result)} (убрано {skipped} дублей)')
+    print(f'  Дедупликация: {len(items)} → {len(result)} (дублей: {dupes})')
     return result
 
 # ═══════════════════════════════════════════
-#  ЗАПИСЬ В БАЗУ ДАННЫХ
+#  СОХРАНЕНИЕ В БАЗУ
 # ═══════════════════════════════════════════
 
 def save_to_db(items):
     if not items:
-        print('Нечего сохранять')
+        print('  Нечего сохранять')
         return
 
-    # Получаем существующие URL из базы
-    existing = supabase.table('listings').select('url, date_found').execute()
-    existing_urls = {row['url']: row['date_found'] for row in (existing.data or [])}
-    print(f'В базе уже {len(existing_urls)} записей')
+    existing = supa_select('listings', 'url,date_found')
+    existing_map = {row['url']: row['date_found'] for row in (existing or [])}
+    print(f'  В базе уже: {len(existing_map)} записей')
 
     today = str(date.today())
+    now_ts = datetime.utcnow().isoformat()
     to_upsert = []
 
     for item in items:
         url = item.get('url', '')
         if not url:
             continue
-        row = {
+        to_upsert.append({
             'company':      item.get('company', ''),
             'brand':        item.get('brand', ''),
             'year':         item.get('year'),
@@ -533,76 +545,71 @@ def save_to_db(items):
             'url':          url,
             'source':       item.get('source', ''),
             'vin':          item.get('vin'),
-            'date_found':   existing_urls.get(url, today),
-            'date_updated': 'now()',
+            'date_found':   existing_map.get(url, today),
+            'date_updated': now_ts,
             'status':       'В наличии',
-        }
-        to_upsert.append(row)
+        })
 
     # Помечаем снятые с продажи
-    new_urls = {item['url'] for item in to_upsert if item['url']}
-    removed = [url for url in existing_urls if url not in new_urls]
+    new_urls = {i['url'] for i in to_upsert}
+    removed = [u for u in existing_map if u not in new_urls]
     if removed:
-        supabase.table('listings').update({'status': 'Снято с продажи'}).in_('url', removed).execute()
-        print(f'Помечено снятыми: {len(removed)}')
+        for i in range(0, len(removed), 50):
+            batch = removed[i:i+50]
+            supa_update_many('listings', {'status': 'Снято с продажи', 'date_updated': now_ts},
+                            'url', batch)
+        print(f'  Снято с продажи: {len(removed)}')
 
-    # Сохраняем пакетами по 100
-    batch_size = 100
+    # Сохраняем пакетами по 50
     saved = 0
-    for i in range(0, len(to_upsert), batch_size):
-        batch = to_upsert[i:i+batch_size]
-        supabase.table('listings').upsert(batch, on_conflict='url').execute()
-        saved += len(batch)
+    for i in range(0, len(to_upsert), 50):
+        batch = to_upsert[i:i+50]
+        if supa_upsert('listings', batch):
+            saved += len(batch)
+        else:
+            print(f'  Ошибка записи пакета {i//50 + 1}')
 
-    print(f'Сохранено в базу: {saved} записей')
+    print(f'  Сохранено: {saved} записей')
 
 # ═══════════════════════════════════════════
-#  ЗАПУСК
+#  ГЛАВНАЯ ФУНКЦИЯ
 # ═══════════════════════════════════════════
 
 def main():
     print('=' * 50)
-    print('АГРЕГАТОР ЛИЗИНГОВОЙ ТЕХНИКИ — СБОР ДАННЫХ')
+    print('АГРЕГАТОР ЛИЗИНГОВОЙ ТЕХНИКИ')
+    print(f'Запуск: {datetime.now().strftime("%d.%m.%Y %H:%M")}')
     print('=' * 50)
+
+    if not test_connection():
+        print('ОСТАНОВКА: нет подключения к базе данных')
+        return
 
     all_items = []
 
-    # 1. Парсим официальные сайты
-    print('\n--- Официальные сайты ---')
-    parsers = [
-        parse_alfa_leasing,
-        parse_ileasing,
-        parse_carcade,
-        parse_sberleasing,
-        parse_vtb_leasing,
-        parse_sovcom,
-        parse_europlan,
-        parse_baltlease,
-    ]
-    for parser in parsers:
+    print('\n📡 Официальные сайты:')
+    for parser in [parse_alfa_leasing, parse_ileasing, parse_carcade,
+                   parse_sberleasing, parse_vtb_leasing, parse_sovcom,
+                   parse_europlan, parse_baltlease]:
         try:
-            items = parser()
-            all_items.extend(items)
+            all_items.extend(parser())
         except Exception as e:
-            print(f'Ошибка {parser.__name__}: {e}')
+            print(f'  Ошибка {parser.__name__}: {e}')
 
-    # 2. Парсим Avito (с GitHub IP должно работать)
-    print('\n--- Avito ---')
+    print('\n📱 Avito:')
     try:
-        avito_items = parse_avito_sellers()
-        all_items.extend(avito_items)
+        all_items.extend(parse_avito())
     except Exception as e:
-        print(f'Ошибка Avito: {e}')
+        print(f'  Ошибка Avito: {e}')
 
-    # 3. Дедупликация
-    print(f'\n--- Всего найдено: {len(all_items)} ---')
-    unique_items = deduplicate(all_items)
+    print(f'\n📊 Всего найдено: {len(all_items)}')
+    unique = deduplicate(all_items)
 
-    # 4. Сохраняем в Supabase
-    print('\n--- Сохранение в базу ---')
-    save_to_db(unique_items)
+    print('\n💾 Сохранение в базу:')
+    save_to_db(unique)
 
     print('\n✅ ГОТОВО!')
+    print(f'Итого в базе: {len(unique)} уникальных объявлений')
 
 if __name__ == '__main__':
     main()
