@@ -36,12 +36,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .sort-bar span { font-size: 13px; color: #64748b; }
 .sort-bar select { padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 13px; outline: none; }
 .upd { font-size: 12px; color: #94a3b8; margin-left: auto; }
-
-/* ── Карточка техники ── */
 .rcard { background: white; border: 1px solid #e2e8f0; border-radius: 14px; margin-bottom: 12px; overflow: hidden; display: grid; grid-template-columns: 210px 1fr; transition: box-shadow .15s; }
 .rcard:hover { box-shadow: 0 4px 16px rgba(0,0,0,.09); }
 .rcard.sold { opacity: .6; }
-.rcard-photo { background: #e2e8f0; min-height: 180px; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #94a3b8; font-size: 12px; gap: 6px; padding: 16px; text-align: center; }
+.rcard-photo { background: #e2e8f0; min-height: 180px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+.rcard-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rcard-photo .ph-fallback { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #94a3b8; font-size: 12px; padding: 16px; text-align: center; }
 .rcard-photo .ico { font-size: 42px; }
 .rcard-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
 .co-badge { font-size: 11px; font-weight: 700; color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 5px; padding: 2px 9px; display: inline-block; }
@@ -51,7 +51,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .price-na  { font-size: 13px; color: #94a3b8; font-style: italic; }
 .tags { display: flex; gap: 5px; flex-wrap: wrap; }
 .tag { font-size: 11px; border-radius: 5px; padding: 2px 8px; font-weight: 600; }
-.t-green { color: #166534; background: #dcfce7; border: 1px solid #86efac; }
 .t-red   { color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; }
 .t-gray  { color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 400; font-size: 10px; }
 .t-days-ok  { background: #dcfce7; color: #166534; border-radius: 20px; padding: 2px 9px; }
@@ -66,8 +65,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .go-btn { color: white; font-size: 12px; font-weight: 700; background: #1e40af; padding: 6px 14px; border-radius: 7px; text-decoration: none; }
 .go-btn:hover { background: #1d3a8a; }
 .go-btn.sold-btn { background: #94a3b8; }
-
-/* ── Партнёры ── */
 .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 12px; }
 .pcard { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; }
 .pcard-name { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #1e293b; }
@@ -76,10 +73,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .plink-site  { background: #eff6ff; color: #1e40af; }
 .plink-avito { background: #dcfce7; color: #166534; }
 .plink:hover { opacity: .8; }
-
 .empty { text-align: center; padding: 60px 20px; color: #94a3b8; }
 .empty .ico { font-size: 48px; margin-bottom: 12px; }
-
 @media(max-width:640px){
   .rcard { grid-template-columns: 1fr; }
   .rcard-photo { min-height: 120px; }
@@ -89,7 +84,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </head>
 <body>
 <div class="app">
-
 <div class="header">
   <div>
     <h1>🚛 База лизинговой техники</h1>
@@ -97,13 +91,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
   <div class="header-stats" id="hstats"></div>
 </div>
-
 <div class="tabs">
   <button class="tab active" onclick="setTab('search',this)">🔍 Поиск техники</button>
   <button class="tab" onclick="setTab('partners',this)">🏢 Компании</button>
 </div>
-
-<!-- ПОИСК -->
 <div id="tab-search" class="panel active">
   <div class="card-wrap">
     <div class="fgrid">
@@ -163,7 +154,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <span class="res-count" id="cnt"></span>
     </div>
   </div>
-
   <div class="sort-bar">
     <span>Сортировка:</span>
     <select id="sort" onchange="go()">
@@ -176,11 +166,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </select>
     <span class="upd" id="upd"></span>
   </div>
-
   <div id="grid"><div class="empty"><div class="ico">⏳</div><p>Загружаем данные...</p></div></div>
 </div>
-
-<!-- ПАРТНЁРЫ -->
 <div id="tab-partners" class="panel">
   <div class="card-wrap">
     <div style="font-size:15px;font-weight:700;color:#1e40af;margin-bottom:4px">🏢 Лизинговые компании</div>
@@ -188,14 +175,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="pgrid" id="pgrid"></div>
   </div>
 </div>
-
 </div>
-
 <script>
 const URL_ = 'https://znzxbhzkeymyrwmaycrd.supabase.co';
 const KEY  = 'sb_publishable_dQqyeDBXfI97IrcsOM89eg_n1sbVaHF';
 const HDR  = { apikey: KEY, Authorization: 'Bearer ' + KEY };
-
 const PARTNERS = [
   {name:'Альфа Лизинг',site:'https://alfaleasing.ru/rasprodazha-avto-s-probegom/gruzovye/',avito:'https://www.avito.ru/brands/alfaleasingtrucks/items/all/gruzoviki_i_spetstehnika'},
   {name:'Каркаде',site:'https://www.carcade.com/avto_s_probegom',avito:'https://www.avito.ru/brands/i52793947/all'},
@@ -211,14 +195,12 @@ const PARTNERS = [
   {name:'Восток Лизинг',site:'',avito:'https://www.avito.ru/brands/i192526016/all'},
   {name:'Реалист',site:'https://realistbank.ru/catalog/',avito:'https://www.avito.ru/brands/realistbank/all/transport'},
 ];
-
 let all=[], filtered=[];
-
 async function load(){
   let data=[], from=0;
   while(true){
-    const r = await fetch(`${URL_}/rest/v1/listings?select=*&order=date_updated.desc&limit=1000&offset=${from}`,{headers:HDR});
-    const b = await r.json();
+    const r=await fetch(`${URL_}/rest/v1/listings?select=*&order=date_updated.desc&limit=1000&offset=${from}`,{headers:HDR});
+    const b=await r.json();
     if(!Array.isArray(b)||!b.length) break;
     data=data.concat(b);
     if(b.length<1000) break;
@@ -226,22 +208,22 @@ async function load(){
   }
   return data;
 }
-
 const fmt=n=>n?Number(n).toLocaleString('ru-RU'):null;
 const days=d=>d?Math.floor((Date.now()-new Date(d))/86400000):null;
-
 function dayTag(d){
   if(d===null) return '';
   const c=d<=14?'t-days-ok':d<=45?'t-days-mid':'t-days-old';
   return `<span class="tag ${c}">⏱ ${d===0?'сегодня':d+' дн.'}</span>`;
 }
-
 function card(l){
   const sold=l.status==='Снято с продажи';
   const av=(l.source||'').toLowerCase().includes('avito');
   const d=days(l.date_found);
+  const photoBlock = l.image_url
+    ? `<img src="${l.image_url}" alt="${(l.brand||'').replace(/"/g,'')}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=ph-fallback><div class=ico>🚛</div><div>${l.company||''}</div></div>'">`
+    : `<div class="ph-fallback"><div class="ico">🚛</div><div>${l.company||''}</div></div>`;
   return `<div class="rcard ${sold?'sold':''}">
-    <div class="rcard-photo"><div class="ico">🚛</div><div>${l.company||''}</div></div>
+    <div class="rcard-photo">${photoBlock}</div>
     <div class="rcard-body">
       <div><span class="co-badge">${l.company||''}</span></div>
       <div class="rcard-top">
@@ -249,7 +231,7 @@ function card(l){
         <div>${l.price?`<span class="price-big">${fmt(l.price)} ₽</span>`:`<span class="price-na">Цена не указана</span>`}</div>
       </div>
       <div class="tags">
-        <span class="tag ${sold?'t-red':'t-green'}">${sold?'Снято с продажи':'В наличии'}</span>
+        ${sold?`<span class="tag t-red">Снято с продажи</span>`:''}
         ${l.vin?`<span class="tag t-gray">VIN: ${l.vin}</span>`:''}
         ${dayTag(d)}
       </div>
@@ -266,7 +248,6 @@ function card(l){
     </div>
   </div>`;
 }
-
 function go(){
   const q=(document.getElementById('q').value||'').toLowerCase();
   const fc=document.getElementById('fc').value;
@@ -280,7 +261,6 @@ function go(){
   const fm1=+document.getElementById('fm1').value||0;
   const fm2=+document.getElementById('fm2').value||Infinity;
   const sort=document.getElementById('sort').value;
-
   filtered=all.filter(l=>{
     if(q&&!(l.brand||'').toLowerCase().includes(q)&&!(l.company||'').toLowerCase().includes(q)) return false;
     if(fc&&l.company!==fc) return false;
@@ -293,7 +273,6 @@ function go(){
     if(l.mileage&&(l.mileage<fm1||l.mileage>fm2)) return false;
     return true;
   });
-
   filtered.sort((a,b)=>{
     if(sort==='price_asc')  return (a.price||0)-(b.price||0);
     if(sort==='price_desc') return (b.price||0)-(a.price||0);
@@ -302,13 +281,11 @@ function go(){
     if(sort==='days')       return (days(a.date_found)||0)-(days(b.date_found)||0);
     return new Date(b.date_updated)-new Date(a.date_updated);
   });
-
   document.getElementById('cnt').textContent='Найдено: '+filtered.length;
   document.getElementById('grid').innerHTML=filtered.length
     ?filtered.map(card).join('')
     :'<div class="empty"><div class="ico">🔍</div><p>Ничего не найдено — измените фильтры</p></div>';
 }
-
 function reset(){
   ['q','fy1','fy2','fp1','fp2','fm1','fm2'].forEach(id=>document.getElementById(id).value='');
   ['fc','fsrc','fcity'].forEach(id=>document.getElementById(id).value='');
@@ -316,19 +293,17 @@ function reset(){
   document.getElementById('sort').value='new';
   go();
 }
-
 function setTab(name,btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-'+name).classList.add('active');
 }
-
 async function init(){
   try{
     all=await load();
     if(!all.length){
-      document.getElementById('grid').innerHTML='<div class="empty"><div class="ico">📭</div><p>База пуста — запустите парсер в GitHub Actions</p></div>';
+      document.getElementById('grid').innerHTML='<div class="empty"><div class="ico">📭</div><p>База пуста</p></div>';
       return;
     }
     const companies=[...new Set(all.map(l=>l.company).filter(Boolean))].sort();
@@ -337,7 +312,6 @@ async function init(){
     companies.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;fc.appendChild(o);});
     const city=document.getElementById('fcity');
     cities.slice(0,100).forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;city.appendChild(o);});
-
     const active=all.filter(l=>l.status==='В наличии').length;
     const avito=all.filter(l=>(l.source||'').toLowerCase().includes('avito')).length;
     const cos=new Set(all.map(l=>l.company).filter(Boolean)).size;
@@ -348,10 +322,8 @@ async function init(){
       <div class="hstat"><strong>${cos}</strong><span>Компаний</span></div>
       <div class="hstat"><strong>${avito.toLocaleString()}</strong><span>С Avito</span></div>
       <div class="hstat"><strong>${avg?fmt(avg)+'₽':'—'}</strong><span>Средняя цена</span></div>`;
-
     const last=all.reduce((a,b)=>new Date(a.date_updated)>new Date(b.date_updated)?a:b);
     document.getElementById('upd').textContent='Обновлено: '+new Date(last.date_updated).toLocaleString('ru-RU');
-
     document.getElementById('pgrid').innerHTML=PARTNERS.map(p=>`
       <div class="pcard">
         <div class="pcard-name">${p.name}</div>
@@ -360,7 +332,6 @@ async function init(){
           ${p.avito?`<a class="plink plink-avito" href="${p.avito}" target="_blank" rel="noopener">🟢 Avito</a>`:''}
         </div>
       </div>`).join('');
-
     go();
   }catch(e){
     document.getElementById('grid').innerHTML='<div class="empty"><div class="ico">❌</div><p>Ошибка: '+e.message+'</p></div>';
@@ -370,4 +341,3 @@ init();
 </script>
 </body>
 </html>
-  
