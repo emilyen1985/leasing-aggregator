@@ -75,6 +75,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .plink:hover { opacity: .8; }
 .empty { text-align: center; padding: 60px 20px; color: #94a3b8; }
 .empty .ico { font-size: 48px; margin-bottom: 12px; }
+.loading-bar { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 20px; text-align: center; }
+.loading-bar p { color: #1e40af; font-weight: 600; margin-bottom: 8px; }
+.loading-bar small { color: #64748b; font-size: 12px; }
+.retry-btn { margin-top: 12px; padding: 8px 20px; background: #1e40af; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
 @media(max-width:640px){
   .rcard { grid-template-columns: 1fr; }
   .rcard-photo { min-height: 120px; }
@@ -86,14 +90,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <div class="app">
 <div class="header">
   <div>
-    <h1>🚛 База лизинговой техники</h1>
+    <h1>&#x1F69B; База лизинговой техники</h1>
     <p>Официальные сайты + Avito — автообновление 2 раза в день</p>
   </div>
   <div class="header-stats" id="hstats"></div>
 </div>
 <div class="tabs">
-  <button class="tab active" onclick="setTab('search',this)">🔍 Поиск техники</button>
-  <button class="tab" onclick="setTab('partners',this)">🏢 Компании</button>
+  <button class="tab active" onclick="setTab('search',this)">&#x1F50D; Поиск техники</button>
+  <button class="tab" onclick="setTab('partners',this)">&#x1F3E2; Компании</button>
 </div>
 <div id="tab-search" class="panel active">
   <div class="card-wrap">
@@ -134,7 +138,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         </div>
       </div>
       <div class="field">
-        <label>Цена, ₽</label>
+        <label>Цена, &#x20BD;</label>
         <div class="range-row">
           <input type="number" id="fp1" placeholder="от" oninput="go()">
           <input type="number" id="fp2" placeholder="до" oninput="go()">
@@ -158,29 +162,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <span>Сортировка:</span>
     <select id="sort" onchange="go()">
       <option value="new">Сначала новые</option>
-      <option value="price_asc">Цена ↑</option>
-      <option value="price_desc">Цена ↓</option>
-      <option value="mil_asc">Пробег ↑</option>
-      <option value="year_desc">Год ↓</option>
-      <option value="days">Дней на складе ↑</option>
+      <option value="price_asc">Цена &#x2191;</option>
+      <option value="price_desc">Цена &#x2193;</option>
+      <option value="mil_asc">Пробег &#x2191;</option>
+      <option value="year_desc">Год &#x2193;</option>
+      <option value="days">Дней на складе &#x2191;</option>
     </select>
     <span class="upd" id="upd"></span>
   </div>
-  <div id="grid"><div class="empty"><div class="ico">⏳</div><p>Загружаем данные...</p></div></div>
+  <div id="grid"></div>
 </div>
 <div id="tab-partners" class="panel">
   <div class="card-wrap">
-    <div style="font-size:15px;font-weight:700;color:#1e40af;margin-bottom:4px">🏢 Лизинговые компании</div>
+    <div style="font-size:15px;font-weight:700;color:#1e40af;margin-bottom:4px">&#x1F3E2; Лизинговые компании</div>
     <div style="font-size:13px;color:#64748b">Прямые ссылки на каталоги техники и Avito-магазины</div>
     <div class="pgrid" id="pgrid"></div>
   </div>
 </div>
 </div>
 <script>
-const URL_ = 'https://znzxbhzkeymyrwmaycrd.supabase.co';
-const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuenhiaHprZXlteXJ3bWF5Y3JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyOTU5NDgsImV4cCI6MjA5MTg3MTk0OH0.CKpae6h5XKifu3189daNRqY9_uFs1DoELh1skEzKa4Q';
-const HDR  = { apikey: KEY, Authorization: 'Bearer ' + KEY };
-const PARTNERS = [
+var SB_URL = 'https://znzxbhzkeymyrwmaycrd.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuenhiaHprZXlteXJ3bWF5Y3JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyOTU5NDgsImV4cCI6MjA5MTg3MTk0OH0.CKpae6h5XKifu3189daNRqY9_uFs1DoELh1skEzKa4Q';
+var PARTNERS = [
   {name:'Альфа Лизинг',site:'https://alfaleasing.ru/rasprodazha-avto-s-probegom/gruzovye/',avito:'https://www.avito.ru/brands/alfaleasingtrucks/items/all/gruzoviki_i_spetstehnika'},
   {name:'Каркаде',site:'https://www.carcade.com/avto_s_probegom',avito:'https://www.avito.ru/brands/i52793947/all'},
   {name:'ВТБ Лизинг',site:'https://www.vtb-leasing.ru/market/',avito:'https://www.avito.ru/brands/vtb-leasing'},
@@ -195,149 +198,172 @@ const PARTNERS = [
   {name:'Восток Лизинг',site:'',avito:'https://www.avito.ru/brands/i192526016/all'},
   {name:'Реалист',site:'https://realistbank.ru/catalog/',avito:'https://www.avito.ru/brands/realistbank/all/transport'},
 ];
-let all=[], filtered=[];
-async function load(){
-  let data=[], from=0, page=1;
-  while(true){
-    document.getElementById('grid').innerHTML='<div class="empty"><div class="ico">\u23F3</div><p>\u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043c... \u0441\u0442\u0440. '+page+'</p></div>';
-    const r=await fetch(`${URL_}/rest/v1/listings?select=*&order=date_updated.desc&limit=1000&offset=${from}`,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const b=await r.json();
-    if(!Array.isArray(b)||!b.length) break;
-    data=data.concat(b);
-    if(b.length<1000) break;
-    from+=1000; page++;
+var all=[], filtered=[];
+
+function setLoading(msg, sub) {
+  document.getElementById('grid').innerHTML =
+    '<div class="loading-bar"><p>' + msg + '</p>' +
+    (sub ? '<small>' + sub + '</small>' : '') + '</div>';
+}
+
+function setError(msg) {
+  document.getElementById('grid').innerHTML =
+    '<div class="loading-bar" style="border-color:#fca5a5;background:#fee2e2">' +
+    '<p style="color:#991b1b">&#x274C; ' + msg + '</p>' +
+    '<button class="retry-btn" onclick="init()">Попробовать снова</button></div>';
+}
+
+async function loadAll() {
+  var data = [], from = 0, page = 1;
+  while (true) {
+    setLoading('Загружаем данные... страница ' + page, 'Подождите, это займёт несколько секунд');
+    var url = SB_URL + '/rest/v1/listings?select=*&order=date_updated.desc&limit=1000&offset=' + from;
+    var resp = await fetch(url, {
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }
+    });
+    if (!resp.ok) {
+      throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+    }
+    var batch = await resp.json();
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    data = data.concat(batch);
+    if (batch.length < 1000) break;
+    from += 1000;
+    page++;
   }
   return data;
 }
-const fmt=n=>n?Number(n).toLocaleString('ru-RU'):null;
-const days=d=>d?Math.floor((Date.now()-new Date(d))/86400000):null;
-function dayTag(d){
-  if(d===null) return '';
-  const c=d<=14?'t-days-ok':d<=45?'t-days-mid':'t-days-old';
-  return `<span class="tag ${c}">⏱ ${d===0?'сегодня':d+' дн.'}</span>`;
+
+var fmt = function(n) { return n ? Number(n).toLocaleString('ru-RU') : null; };
+var daysDiff = function(d) { return d ? Math.floor((Date.now() - new Date(d)) / 86400000) : null; };
+
+function dayTag(d) {
+  if (d === null) return '';
+  var c = d <= 14 ? 't-days-ok' : d <= 45 ? 't-days-mid' : 't-days-old';
+  return '<span class="tag ' + c + '">&#x23F1; ' + (d === 0 ? 'сегодня' : d + ' дн.') + '</span>';
 }
-function card(l){
-  const sold=l.status==='Снято с продажи';
-  const av=(l.source||'').toLowerCase().includes('avito');
-  const d=days(l.date_found);
-  const photoBlock = l.image_url
-    ? `<img src="${l.image_url}" alt="${(l.brand||'').replace(/"/g,'')}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=ph-fallback><div class=ico>🚛</div><div>${l.company||''}</div></div>'">`
-    : `<div class="ph-fallback"><div class="ico">🚛</div><div>${l.company||''}</div></div>`;
-  return `<div class="rcard ${sold?'sold':''}">
-    <div class="rcard-photo">${photoBlock}</div>
-    <div class="rcard-body">
-      <div><span class="co-badge">${l.company||''}</span></div>
-      <div class="rcard-top">
-        <div class="rtitle">${l.brand||'Объявление'}</div>
-        <div>${l.price?`<span class="price-big">${fmt(l.price)} ₽</span>`:`<span class="price-na">Цена не указана</span>`}</div>
-      </div>
-      <div class="tags">
-        ${sold?`<span class="tag t-red">Снято с продажи</span>`:''}
-        ${l.vin?`<span class="tag t-gray">VIN: ${l.vin}</span>`:''}
-        ${dayTag(d)}
-      </div>
-      <div class="chips">
-        ${l.year?`<span class="chip">📅 <strong>${l.year}</strong> г.</span>`:''}
-        ${l.mileage?`<span class="chip">🛣 <strong>${fmt(l.mileage)}</strong> км</span>`:''}
-        ${l.city?`<span class="chip">📍 <strong>${l.city}</strong></span>`:''}
-      </div>
-      <div class="rcard-footer">
-        <span class="src-tag ${av?'src-avito':''}">${av?'🟢 Avito':'🔵 '+(l.source||'Сайт')}</span>
-        <span style="font-size:11px;color:#94a3b8">${l.date_found||''}</span>
-        ${l.url?`<a class="go-btn ${sold?'sold-btn':''}" href="${l.url}" target="_blank" rel="noopener">Перейти →</a>`:''}
-      </div>
-    </div>
-  </div>`;
+
+function card(l) {
+  var sold = l.status === 'Снято с продажи';
+  var av = (l.source || '').toLowerCase().indexOf('avito') >= 0;
+  var d = daysDiff(l.date_found);
+  var photoBlock = l.image_url
+    ? '<img src="' + l.image_url + '" alt="" loading="lazy" onerror="this.parentNode.innerHTML=\'<div class=ph-fallback><div class=ico>&#x1F69B;</div></div>\'">'
+    : '<div class="ph-fallback"><div class="ico">&#x1F69B;</div><div>' + (l.company || '') + '</div></div>';
+  return '<div class="rcard' + (sold ? ' sold' : '') + '">' +
+    '<div class="rcard-photo">' + photoBlock + '</div>' +
+    '<div class="rcard-body">' +
+    '<div><span class="co-badge">' + (l.company || '') + '</span></div>' +
+    '<div class="rcard-top">' +
+    '<div class="rtitle">' + (l.brand || 'Объявление') + '</div>' +
+    '<div>' + (l.price ? '<span class="price-big">' + fmt(l.price) + ' &#x20BD;</span>' : '<span class="price-na">Цена не указана</span>') + '</div>' +
+    '</div>' +
+    '<div class="tags">' +
+    (sold ? '<span class="tag t-red">Снято с продажи</span>' : '') +
+    (l.vin ? '<span class="tag t-gray">VIN: ' + l.vin + '</span>' : '') +
+    dayTag(d) +
+    '</div>' +
+    '<div class="chips">' +
+    (l.year ? '<span class="chip">&#x1F4C5; <strong>' + l.year + '</strong> г.</span>' : '') +
+    (l.mileage ? '<span class="chip">&#x1F6E3; <strong>' + fmt(l.mileage) + '</strong> км</span>' : '') +
+    (l.city ? '<span class="chip">&#x1F4CD; <strong>' + l.city + '</strong></span>' : '') +
+    '</div>' +
+    '<div class="rcard-footer">' +
+    '<span class="src-tag' + (av ? ' src-avito' : '') + '">' + (av ? '&#x1F7E2; Avito' : '&#x1F535; ' + (l.source || 'Сайт')) + '</span>' +
+    '<span style="font-size:11px;color:#94a3b8">' + (l.date_found || '') + '</span>' +
+    (l.url ? '<a class="go-btn' + (sold ? ' sold-btn' : '') + '" href="' + l.url + '" target="_blank" rel="noopener">Перейти &#x2192;</a>' : '') +
+    '</div></div></div>';
 }
-function go(){
-  const q=(document.getElementById('q').value||'').toLowerCase();
-  const fc=document.getElementById('fc').value;
-  const fs=document.getElementById('fs').value;
-  const fsrc=document.getElementById('fsrc').value;
-  const fcity=document.getElementById('fcity').value;
-  const fy1=+document.getElementById('fy1').value||0;
-  const fy2=+document.getElementById('fy2').value||9999;
-  const fp1=+document.getElementById('fp1').value||0;
-  const fp2=+document.getElementById('fp2').value||Infinity;
-  const fm1=+document.getElementById('fm1').value||0;
-  const fm2=+document.getElementById('fm2').value||Infinity;
-  const sort=document.getElementById('sort').value;
-  filtered=all.filter(l=>{
-    if(q&&!(l.brand||'').toLowerCase().includes(q)&&!(l.company||'').toLowerCase().includes(q)) return false;
-    if(fc&&l.company!==fc) return false;
-    if(fs&&l.status!==fs) return false;
-    if(fsrc==='avito'&&!(l.source||'').toLowerCase().includes('avito')) return false;
-    if(fsrc==='site'&&(l.source||'').toLowerCase().includes('avito')) return false;
-    if(fcity&&l.city!==fcity) return false;
-    if(l.year&&(l.year<fy1||l.year>fy2)) return false;
-    if(l.price&&(l.price<fp1||l.price>fp2)) return false;
-    if(l.mileage&&(l.mileage<fm1||l.mileage>fm2)) return false;
+
+function go() {
+  var q = (document.getElementById('q').value || '').toLowerCase();
+  var fc = document.getElementById('fc').value;
+  var fs = document.getElementById('fs').value;
+  var fsrc = document.getElementById('fsrc').value;
+  var fcity = document.getElementById('fcity').value;
+  var fy1 = +document.getElementById('fy1').value || 0;
+  var fy2 = +document.getElementById('fy2').value || 9999;
+  var fp1 = +document.getElementById('fp1').value || 0;
+  var fp2 = +document.getElementById('fp2').value || Infinity;
+  var fm1 = +document.getElementById('fm1').value || 0;
+  var fm2 = +document.getElementById('fm2').value || Infinity;
+  var sort = document.getElementById('sort').value;
+  filtered = all.filter(function(l) {
+    if (q && (l.brand||'').toLowerCase().indexOf(q) < 0 && (l.company||'').toLowerCase().indexOf(q) < 0) return false;
+    if (fc && l.company !== fc) return false;
+    if (fs && l.status !== fs) return false;
+    if (fsrc === 'avito' && (l.source||'').toLowerCase().indexOf('avito') < 0) return false;
+    if (fsrc === 'site' && (l.source||'').toLowerCase().indexOf('avito') >= 0) return false;
+    if (fcity && l.city !== fcity) return false;
+    if (l.year && (l.year < fy1 || l.year > fy2)) return false;
+    if (l.price && (l.price < fp1 || l.price > fp2)) return false;
+    if (l.mileage && (l.mileage < fm1 || l.mileage > fm2)) return false;
     return true;
   });
-  filtered.sort((a,b)=>{
-    if(sort==='price_asc')  return (a.price||0)-(b.price||0);
-    if(sort==='price_desc') return (b.price||0)-(a.price||0);
-    if(sort==='mil_asc')    return (a.mileage||0)-(b.mileage||0);
-    if(sort==='year_desc')  return (b.year||0)-(a.year||0);
-    if(sort==='days')       return (days(a.date_found)||0)-(days(b.date_found)||0);
-    return new Date(b.date_updated)-new Date(a.date_updated);
+  filtered.sort(function(a,b) {
+    if (sort === 'price_asc')  return (a.price||0) - (b.price||0);
+    if (sort === 'price_desc') return (b.price||0) - (a.price||0);
+    if (sort === 'mil_asc')    return (a.mileage||0) - (b.mileage||0);
+    if (sort === 'year_desc')  return (b.year||0) - (a.year||0);
+    if (sort === 'days')       return (daysDiff(a.date_found)||0) - (daysDiff(b.date_found)||0);
+    return new Date(b.date_updated) - new Date(a.date_updated);
   });
-  document.getElementById('cnt').textContent='Найдено: '+filtered.length;
-  document.getElementById('grid').innerHTML=filtered.length
-    ?filtered.map(card).join('')
-    :'<div class="empty"><div class="ico">🔍</div><p>Ничего не найдено — измените фильтры</p></div>';
+  document.getElementById('cnt').textContent = 'Найдено: ' + filtered.length;
+  document.getElementById('grid').innerHTML = filtered.length
+    ? filtered.map(card).join('')
+    : '<div class="empty"><div class="ico">&#x1F50D;</div><p>Ничего не найдено — измените фильтры</p></div>';
 }
-function reset(){
-  ['q','fy1','fy2','fp1','fp2','fm1','fm2'].forEach(id=>document.getElementById(id).value='');
-  ['fc','fsrc','fcity'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('fs').value='В наличии';
-  document.getElementById('sort').value='new';
+
+function reset() {
+  ['q','fy1','fy2','fp1','fp2','fm1','fm2'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['fc','fsrc','fcity'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('fs').value = 'В наличии';
+  document.getElementById('sort').value = 'new';
   go();
 }
-function setTab(name,btn){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+
+function setTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
   btn.classList.add('active');
-  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
 }
-async function init(){
-  try{
-    all=await load();
-    if(!all.length){
-      document.getElementById('grid').innerHTML='<div class="empty"><div class="ico">📭</div><p>База пуста — данные ещё не загружены</p></div>';
+
+async function init() {
+  setLoading('Подключаемся к базе данных...', '');
+  try {
+    all = await loadAll();
+    if (!all.length) {
+      document.getElementById('grid').innerHTML = '<div class="empty"><div class="ico">&#x1F4ED;</div><p>База пуста — данные ещё не загружены</p></div>';
       return;
     }
-    const companies=[...new Set(all.map(l=>l.company).filter(Boolean))].sort();
-    const cities=[...new Set(all.map(l=>l.city).filter(Boolean))].sort();
-    const fc=document.getElementById('fc');
-    companies.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;fc.appendChild(o);});
-    const city=document.getElementById('fcity');
-    cities.slice(0,100).forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;city.appendChild(o);});
-    const active=all.filter(l=>l.status==='В наличии').length;
-    const avito=all.filter(l=>(l.source||'').toLowerCase().includes('avito')).length;
-    const cos=new Set(all.map(l=>l.company).filter(Boolean)).size;
-    const wp=all.filter(l=>l.price);
-    const avg=wp.length?Math.round(wp.reduce((s,l)=>s+l.price,0)/wp.length):0;
-    document.getElementById('hstats').innerHTML=`
-      <div class="hstat"><strong>${active.toLocaleString()}</strong><span>В наличии</span></div>
-      <div class="hstat"><strong>${cos}</strong><span>Компаний</span></div>
-      <div class="hstat"><strong>${avito.toLocaleString()}</strong><span>С Avito</span></div>
-      <div class="hstat"><strong>${avg?fmt(avg)+'₽':'—'}</strong><span>Средняя цена</span></div>`;
-    const last=all.reduce((a,b)=>new Date(a.date_updated)>new Date(b.date_updated)?a:b);
-    document.getElementById('upd').textContent='Обновлено: '+new Date(last.date_updated).toLocaleString('ru-RU');
-    document.getElementById('pgrid').innerHTML=PARTNERS.map(p=>`
-      <div class="pcard">
-        <div class="pcard-name">${p.name}</div>
-        <div class="plinks">
-          ${p.site?`<a class="plink plink-site" href="${p.site}" target="_blank" rel="noopener">🌐 Сайт</a>`:''}
-          ${p.avito?`<a class="plink plink-avito" href="${p.avito}" target="_blank" rel="noopener">🟢 Avito</a>`:''}
-        </div>
-      </div>`).join('');
+    var companies = [...new Set(all.map(function(l){ return l.company; }).filter(Boolean))].sort();
+    var cities = [...new Set(all.map(function(l){ return l.city; }).filter(Boolean))].sort();
+    var fc = document.getElementById('fc');
+    companies.forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; fc.appendChild(o); });
+    var city = document.getElementById('fcity');
+    cities.slice(0,100).forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; city.appendChild(o); });
+    var active = all.filter(function(l){ return l.status==='В наличии'; }).length;
+    var avito = all.filter(function(l){ return (l.source||'').toLowerCase().indexOf('avito')>=0; }).length;
+    var cos = new Set(all.map(function(l){ return l.company; }).filter(Boolean)).size;
+    var wp = all.filter(function(l){ return l.price; });
+    var avg = wp.length ? Math.round(wp.reduce(function(s,l){ return s+l.price; }, 0) / wp.length) : 0;
+    document.getElementById('hstats').innerHTML =
+      '<div class="hstat"><strong>' + active.toLocaleString() + '</strong><span>В наличии</span></div>' +
+      '<div class="hstat"><strong>' + cos + '</strong><span>Компаний</span></div>' +
+      '<div class="hstat"><strong>' + avito.toLocaleString() + '</strong><span>С Avito</span></div>' +
+      '<div class="hstat"><strong>' + (avg ? fmt(avg)+'&#x20BD;' : '—') + '</strong><span>Средняя цена</span></div>';
+    var last = all.reduce(function(a,b){ return new Date(a.date_updated)>new Date(b.date_updated)?a:b; });
+    document.getElementById('upd').textContent = 'Обновлено: ' + new Date(last.date_updated).toLocaleString('ru-RU');
+    document.getElementById('pgrid').innerHTML = PARTNERS.map(function(p){
+      return '<div class="pcard"><div class="pcard-name">' + p.name + '</div><div class="plinks">' +
+        (p.site ? '<a class="plink plink-site" href="' + p.site + '" target="_blank" rel="noopener">&#x1F310; Сайт</a>' : '') +
+        (p.avito ? '<a class="plink plink-avito" href="' + p.avito + '" target="_blank" rel="noopener">&#x1F7E2; Avito</a>' : '') +
+        '</div></div>';
+    }).join('');
     go();
-  }catch(e){
-    document.getElementById('grid').innerHTML=`<div class="empty"><div class="ico">❌</div><p>Ошибка загрузки: ${e.message}</p></div>`;
-    console.error('init error:', e);
+  } catch(e) {
+    setError('Ошибка загрузки: ' + e.message);
   }
 }
 init();
