@@ -200,6 +200,7 @@ async function load(){
   let data=[], from=0;
   while(true){
     const r=await fetch(`${URL_}/rest/v1/listings?select=*&order=date_updated.desc&limit=1000&offset=${from}`,{headers:HDR});
+    if(!r.ok) throw new Error('Supabase: '+r.status+' '+r.statusText);
     const b=await r.json();
     if(!Array.isArray(b)||!b.length) break;
     data=data.concat(b);
@@ -303,7 +304,7 @@ async function init(){
   try{
     all=await load();
     if(!all.length){
-      document.getElementById('grid').innerHTML='<div class="empty"><div class="ico">📭</div><p>База пуста</p></div>';
+      document.getElementById('grid').innerHTML='<div class="empty"><div class="ico">📭</div><p>База пуста — данные ещё не загружены</p></div>';
       return;
     }
     const companies=[...new Set(all.map(l=>l.company).filter(Boolean))].sort();
@@ -334,7 +335,8 @@ async function init(){
       </div>`).join('');
     go();
   }catch(e){
-    document.getElementById('grid').innerHTML='<div class="empty"><div class="ico">❌</div><p>Ошибка: '+e.message+'</p></div>';
+    document.getElementById('grid').innerHTML=`<div class="empty"><div class="ico">❌</div><p>Ошибка загрузки: ${e.message}</p></div>`;
+    console.error('init error:', e);
   }
 }
 init();
