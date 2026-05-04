@@ -217,10 +217,8 @@ async function loadAll() {
   var data = [], from = 0, page = 1;
   while (true) {
     setLoading('Загружаем данные... страница ' + page, 'Подождите, это займёт несколько секунд');
-    var url = SB_URL + '/rest/v1/listings?select=*&order=date_updated.desc&limit=1000&offset=' + from;
-    var resp = await fetch(url, {
-      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }
-    });
+    var url = '/api/listings?limit=1000&offset=' + from;
+    var resp = await fetch(url);
     if (!resp.ok) {
       throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
     }
@@ -354,11 +352,7 @@ async function init() {
       '<div class="hstat"><strong>' + avito.toLocaleString() + '</strong><span>С Avito</span></div>' +
       '<div class="hstat"><strong>' + (avg ? fmt(avg)+'&#x20BD;' : '—') + '</strong><span>Средняя цена</span></div>';
     var last = all.reduce(function(a,b){ return new Date(a.date_updated)>new Date(b.date_updated)?a:b; });
-    var lastDate = new Date(last.date_updated).toLocaleString('ru-RU');
-    document.getElementById('upd').textContent = 'Обновлено: ' + lastDate;
-    // Показываем дату в шапке
-    document.getElementById('hstats').innerHTML +=
-      '<div class="hstat"><strong style="font-size:13px">' + new Date(last.date_updated).toLocaleDateString('ru-RU') + '</strong><span>Дата базы</span></div>';
+    document.getElementById('upd').textContent = 'Обновлено: ' + new Date(last.date_updated).toLocaleString('ru-RU');
     document.getElementById('pgrid').innerHTML = PARTNERS.map(function(p){
       return '<div class="pcard"><div class="pcard-name">' + p.name + '</div><div class="plinks">' +
         (p.site ? '<a class="plink plink-site" href="' + p.site + '" target="_blank" rel="noopener">&#x1F310; Сайт</a>' : '') +
