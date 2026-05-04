@@ -346,12 +346,14 @@ async function init() {
     var cos = new Set(all.map(function(l){ return l.company; }).filter(Boolean)).size;
     var wp = all.filter(function(l){ return l.price; });
     var avg = wp.length ? Math.round(wp.reduce(function(s,l){ return s+l.price; }, 0) / wp.length) : 0;
+    var last = all.reduce(function(a,b){ return new Date(a.date_updated)>new Date(b.date_updated)?a:b; });
+    var lastDate = new Date(last.date_updated).toLocaleDateString('ru-RU');
     document.getElementById('hstats').innerHTML =
       '<div class="hstat"><strong>' + active.toLocaleString() + '</strong><span>В наличии</span></div>' +
       '<div class="hstat"><strong>' + cos + '</strong><span>Компаний</span></div>' +
       '<div class="hstat"><strong>' + avito.toLocaleString() + '</strong><span>С Avito</span></div>' +
-      '<div class="hstat"><strong>' + (avg ? fmt(avg)+'&#x20BD;' : '—') + '</strong><span>Средняя цена</span></div>';
-    var last = all.reduce(function(a,b){ return new Date(a.date_updated)>new Date(b.date_updated)?a:b; });
+      '<div class="hstat"><strong>' + (avg ? fmt(avg)+'&#x20BD;' : '—') + '</strong><span>Средняя цена</span></div>' +
+      '<div class="hstat"><strong style="font-size:15px">' + lastDate + '</strong><span>Дата базы</span></div>';
     document.getElementById('upd').textContent = 'Обновлено: ' + new Date(last.date_updated).toLocaleString('ru-RU');
     document.getElementById('pgrid').innerHTML = PARTNERS.map(function(p){
       return '<div class="pcard"><div class="pcard-name">' + p.name + '</div><div class="plinks">' +
