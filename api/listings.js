@@ -16,16 +16,18 @@ module.exports = function(req, res) {
     method: 'GET',
     headers: {
       'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Accept': 'application/json'
     }
   };
 
   const proxyReq = https.request(options, function(proxyRes) {
-    let data = '';
-    proxyRes.on('data', function(chunk) { data += chunk; });
+    const chunks = [];
+    proxyRes.on('data', function(chunk) { chunks.push(chunk); });
     proxyRes.on('end', function() {
-      res.setHeader('Content-Type', 'application/json');
-      res.status(200).send(data);
+      const body = Buffer.concat(chunks).toString('utf8');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.status(200).send(body);
     });
   });
 
